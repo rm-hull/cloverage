@@ -4,7 +4,7 @@ A Leiningen plugin to run cloverage test coverage.
 
 ## Installation
 
-Put `[lein-cloverage "1.0.0"]` into the `:plugins` vector of your
+Put `[rfkm/lein-cloverage "1.0.0"]` into the `:plugins` vector of your
 `:user` profile.
 
 ## Usage

@@ -1,9 +1,9 @@
-(defproject cloverage "1.0.8-SNAPSHOT"
+(defproject rfkm/cloverage "1.0.7-SNAPSHOT"
   :description "Form-level test coverage for clojure."
-  :url "https://www.github.com/lshift/cloverage"
+  :url "https://www.github.com/rfkm/cloverage"
   :scm {:name "git"
         :dir  ".."
-        :url  "https://www.github.com/lshift/cloverage"
+        :url  "https://www.github.com/rfkm/cloverage"
         :tag  "HEAD"}
   :main ^:skip-aot cloverage.coverage
   :aot [clojure.tools.reader]
@@ -14,9 +14,9 @@
   :deploy-repositories [["clojars" {:username :env/clojars_username :password :env/clojars_password :sign-releases false}]]
   :plugins [[lein-release "1.0.6"]]
   :lein-release {
-    :scm :git ; Because we're not in the top-level directory, so it doesn't auto-detect
-    :deploy-via :clojars
-  }
+                 :scm :git ; Because we're not in the top-level directory, so it doesn't auto-detect
+                 :deploy-via :clojars
+                 }
   :dependencies [[org.clojure/clojure "1.4.0"]
                  [org.clojure/tools.reader "0.9.2"]
                  [org.clojure/tools.cli "0.3.1"]

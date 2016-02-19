@@ -3,11 +3,11 @@ cloverage
 
 Simple clojure coverage tool. Currently requires clojure 1.4.
 
-[![Build Status](https://secure.travis-ci.org/lshift/cloverage.png?branch=master)](http://travis-ci.org/lshift/cloverage)
+[![Build Status](https://secure.travis-ci.org/rfkm/cloverage.png?branch=master)](http://travis-ci.org/rfkm/cloverage)
 
 ## Installation
 
-Add [![Clojars Project](http://clojars.org/lein-cloverage/latest-version.svg)](http://clojars.org/lein-cloverage) to :plugins in your .lein/profiles.clj
+Add [![Clojars Project](http://clojars.org/rfkm/lein-cloverage/latest-version.svg)](http://clojars.org/rfkm/lein-cloverage) to :plugins in your .lein/profiles.clj
 
 ## Testing frameworks support
 
