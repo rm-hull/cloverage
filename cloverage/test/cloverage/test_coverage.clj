@@ -58,9 +58,14 @@
                (wrap #'track-coverage 0 '[1 "foo" bar]))))
 
 (deftest test-wrap-map
-  (is (expand= `(capture 0 {(capture 3 :a) (capture 4 ~'apple)
-                            (capture 1 :b)  (capture 2 ~'banana)})
-               (wrap #'track-coverage 0 '{:a apple :b banana}))))
+  (let [wrapped (macroexpand-all (wrap #'track-coverage 0 '{:a apple :b banana}))]
+    (is (or
+         (expand= `(capture 0 {(capture 1 :a) (capture 2 ~'apple)
+                               (capture 3 :b)  (capture 4 ~'banana)})
+                  wrapped)
+         (expand= `(capture 0 {(capture 1 :b) (capture 2 ~'banana)
+                               (capture 3 :a)  (capture 4 ~'apple)})
+                  wrapped)))))
 
 (deftest test-wrap-list
   (is (expand= `(capture 0 ((capture 1 +) (capture 2 1)

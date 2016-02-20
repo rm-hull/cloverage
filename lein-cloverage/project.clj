@@ -16,5 +16,5 @@
                  }
   :deploy-repositories [["clojars" {:username :env/clojars_username :password :env/clojars_password :sign-releases false}]]
   :min-lein-version "2.0.0"
-  :dependencies [[bultitude "0.2.0"]]
+  :dependencies [[bultitude "0.2.8"]]
   :eval-in-leiningen true)
