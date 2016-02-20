@@ -53,12 +53,6 @@ IllegalArgumentException No matching field found: foo for class user.Bar  clojur
 
 Since cloverage *will* wrap the -foo symbol to track whether it's accessed, you will get this error. Upgrade to clojure 1.6.
 
-## Releases
-
-In order to release to Clojars, you'll need to set `CLOJARS_USERNAME` and `CLOJARS_PASSWORD` in your environment variables.
-
-e.g. `CLOJARS_USERNAME=lshift CLOJARS_PASSWORD=<LShift Clojars password> lein release` in each of the cloverage and lein-cloverage folders.
-
 ## Changelog
 master (unreleased):
 - Bugfixes:
