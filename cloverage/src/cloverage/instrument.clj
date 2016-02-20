@@ -1,18 +1,15 @@
 (ns cloverage.instrument
-  (:use [slingshot.slingshot :only [throw+]]
-        [clojure.java.io :only [writer]]
-        [clojure.string  :only [split]]
-        [cloverage debug source])
-  (:require [clojure.set :as set]
-            [clojure.test :as test]
-            [clojure.tools.logging :as log]
+  (:require [clojure.tools.logging :as log]
             [clojure.tools.reader :as r]
-            [riddley.walk :refer [macroexpand-all]]))
+            [cloverage.debug :as debug]
+            [cloverage.source :as src]
+            [riddley.walk :as rw]
+            [slingshot.slingshot :as ss]))
 
 (defn iobj? [form]
   (and
-    (instance? clojure.lang.IObj form)
-    (not (instance? clojure.lang.AFunction form))))
+   (instance? clojure.lang.IObj form)
+   (not (instance? clojure.lang.AFunction form))))
 
 (defn propagate-line-numbers
   "Assign :line metadata to all possible elements in a form,
@@ -119,8 +116,8 @@
    (let [res (cond (seq? form)  (list-type-in-env form env)
                    (coll? form) :coll
                    :else        :atomic)]
-     (tprnl "Type of" (class form) form "is" res)
-     (tprnl "Meta of" form "is" (meta form))
+     (debug/tprnl "Type of" (class form) form "is" res)
+     (debug/tprnl "Meta of" form "is" (meta form))
      res)))
 
 (defn- var->sym [fvar]
@@ -163,7 +160,7 @@
   "Wrap a let/loop binding
 
    e.g. - `a (+ a b)`       (let or loop)"
-  (tprnl "Wrapping overload" args body)
+  (debug/tprnl "Wrapping overload" args body)
   (let [line (or (:line (meta form)) line-hint)]
     (let [wrapped (doall (map (wrapper f line) body))]
       `(~args ~@wrapped))))
@@ -173,36 +170,36 @@
 
    e.g. - ([a b] (+ a b)) or
           ([n] {:pre [(> n 0)]} (/ 1 n))"
-   (tprnl "Wrapping function overload" args body)
-   (let [line  (or (:line (meta form)) line-hint)
-         conds (when (and (next body) (map? (first body)))
-                 (first body))
-         conds (when conds
-                 (zipmap (keys conds)
-                         (map (fn [exprs] (vec (map (wrapper f line) exprs)))
-                              (vals conds)))) ; must not wrap the vector itself
-         ;; i.e. [(> n 1)] -> [(do (> n 1))], not (do [...])
-         ;; the message of AssertionErrors will be different, too bad.
-         body  (if conds (next body) body)
-         wrapped (doall (map (wrapper f line) body))]
-     `(~args
-        ~@(when conds (list conds))
-        ~@wrapped)))
+  (debug/tprnl "Wrapping function overload" args body)
+  (let [line  (or (:line (meta form)) line-hint)
+        conds (when (and (next body) (map? (first body)))
+                (first body))
+        conds (when conds
+                (zipmap (keys conds)
+                        (map (fn [exprs] (vec (map (wrapper f line) exprs)))
+                             (vals conds)))) ; must not wrap the vector itself
+        ;; i.e. [(> n 1)] -> [(do (> n 1))], not (do [...])
+        ;; the message of AssertionErrors will be different, too bad.
+        body  (if conds (next body) body)
+        wrapped (doall (map (wrapper f line) body))]
+    `(~args
+      ~@(when conds (list conds))
+      ~@wrapped)))
 
 ;; Wrap a list of function overloads, e.g.
 ;;   (([a] (inc a))
 ;;    ([a b] (+ a b)))
 (defn wrap-overloads [f line-hint form]
-  (tprnl "Wrapping overloads " form)
+  (debug/tprnl "Wrapping overloads " form)
   (let [line (or (:line (meta form)) line-hint)]
     (if (vector? (first form))
       (wrap-overload f line form)
       (try
-       (doall (map (partial wrap-overload f line) form))
-       (catch Exception e
-         (tprnl "ERROR: " form)
-         (tprnl e)
-         (throw
+        (doall (map (partial wrap-overload f line) form))
+        (catch Exception e
+          (debug/tprnl "ERROR: " form)
+          (debug/tprnl e)
+          (throw
            (Exception. (pr-str "While wrapping" (:original (meta form)))
                        e)))))))
 
@@ -225,45 +222,45 @@
 
 ;; For a collection, just recur on its elements.
 (defmethod do-wrap :coll [f line form _]
-  (tprn ":coll" form)
+  (debug/tprn ":coll" form)
   (let [wrappee (map (wrapper f line) form)
         wrapped (cond (vector? form) `[~@wrappee]
                       (set? form) `#{~@wrappee}
                       (map-record? form) (merge form
-                                           (zipmap
-                                             (doall (map (wrapper f line) (keys form)))
-                                             (doall (map (wrapper f line) (vals form)))))
+                                                (zipmap
+                                                 (doall (map (wrapper f line) (keys form)))
+                                                 (doall (map (wrapper f line) (vals form)))))
                       (map? form) (zipmap
                                    (doall (map (wrapper f line) (keys form)))
                                    (doall (map (wrapper f line) (vals form))))
                       :else (do
                               (when (nil? (empty form))
-                                (throw+ (str "Can't construct empty " (class form))))
+                                (ss/throw+ (str "Can't construct empty " (class form))))
                               `(into ~(empty form) [] ~(vec wrappee))))]
-    (tprn ":wrapped" (class form) (class wrapped) wrapped)
+    (debug/tprn ":wrapped" (class form) (class wrapped) wrapped)
     (f line wrapped)))
 
 (defn wrap-fn-body [f line form]
- (let [fn-sym (first form)
-       res    (if (symbol? (second form))
-                ;; If the fn has a name, include it
-                `(~fn-sym ~(second form)
-                          ~@(wrap-overloads f line (rest (rest form))))
-                `(~fn-sym ~@(wrap-overloads f line (rest form))))]
-    (tprnl "Instrumented function" res)
+  (let [fn-sym (first form)
+        res    (if (symbol? (second form))
+                 ;; If the fn has a name, include it
+                 `(~fn-sym ~(second form)
+                   ~@(wrap-overloads f line (rest (rest form))))
+                 `(~fn-sym ~@(wrap-overloads f line (rest form))))]
+    (debug/tprnl "Instrumented function" res)
     res))
 
 ;; Wrap a fn form
 (defmethod do-wrap :fn [f line form _]
-  (tprnl "Wrapping fn " form)
+  (debug/tprnl "Wrapping fn " form)
   (f line (wrap-fn-body f line form)))
 
 (defmethod do-wrap :let [f line [let-sym bindings & body :as form] _]
   (f line
-   `(~let-sym
-     [~@(mapcat (partial wrap-binding f line)
-                (partition 2 bindings))]
-      ~@(doall (map (wrapper f line) body)))))
+     `(~let-sym
+       [~@(mapcat (partial wrap-binding f line)
+                  (partition 2 bindings))]
+       ~@(doall (map (wrapper f line) body)))))
 
 (defmethod do-wrap :letfn [f line [_ bindings & _ :as form] _]
   ;; (letfn [(foo [bar] ...) ...] body) ->
@@ -273,12 +270,12 @@
   (let [[letfn*-sym exp-bindings & body] (macroexpand-1 form)]
     (f line
        `(~letfn*-sym
-          [~@(mapcat
-               (fn [[sym fun] orig-bind]
-                 `(~sym ~(wrap-fn-body f (:line (meta orig-bind)) fun)))
-               (partition 2 exp-bindings)
-               bindings)]
-          ~@(doall (map (wrapper f line) body))))))
+         [~@(mapcat
+             (fn [[sym fun] orig-bind]
+               `(~sym ~(wrap-fn-body f (:line (meta orig-bind)) fun)))
+             (partition 2 exp-bindings)
+             bindings)]
+         ~@(doall (map (wrapper f line) body))))))
 
 (defmethod do-wrap :def [f line [def-sym name & body :as form] _]
   (cond
@@ -306,12 +303,12 @@
   ;; (like :tag type hints for reflection when resolving methods)
   (if (= :list (form-type attr-name env))
     (do
-      (tprnl "List dotform, recursing on" (rest attr-name))
+      (debug/tprnl "List dotform, recursing on" (rest attr-name))
       (f line `(~dot-sym ~obj-name (~(first attr-name)
                                     ~@(doall (map (wrapper f line)
                                                   (rest attr-name)))))))
     (do
-      (tprnl "Simple dotform, recursing on" args)
+      (debug/tprnl "Simple dotform, recursing on" args)
       (f line `(~dot-sym ~obj-name ~attr-name ~@(doall (map (wrapper f line) args)))))))
 
 (defmethod do-wrap :set [f line [set-symbol target expr] _]
@@ -336,7 +333,7 @@
                                   (for [[k exp] (vals case-map)]
                                     [k (wrap-it exp)])))]
     (f line `(~case-symbol ~test-var ~a ~b ~wrapped-else
-                           ~wrapped-map ~@stuff))))
+              ~wrapped-map ~@stuff))))
 
 (defn wrap-catch [f line [catch-symbol classname localname & body]]
   ;; can't transform into (try (...) (<capture> (finally ...)))
@@ -350,21 +347,21 @@
 
 (defmethod do-wrap :try [f line [try-symbol & body] _]
   (f line `(~try-symbol
-             ~@(map (fn wrap-try-body [elem]
-                      (if-not (seq? elem)
-                        (f line elem)
-                        (let [head (first elem)]
-                          (cond
-                            (= head 'finally) (wrap-finally f line elem)
-                            (= head 'catch)   (wrap-catch f line elem)
-                            :else             (wrap f line elem)))))
-                    body))))
+            ~@(map (fn wrap-try-body [elem]
+                     (if-not (seq? elem)
+                       (f line elem)
+                       (let [head (first elem)]
+                         (cond
+                           (= head 'finally) (wrap-finally f line elem)
+                           (= head 'catch)   (wrap-catch f line elem)
+                           :else             (wrap f line elem)))))
+                   body))))
 
 (defmethod do-wrap :list [f line form env]
-  (tprnl "Wrapping " (class form) form)
+  (debug/tprnl "Wrapping " (class form) form)
   (let [expanded (macroexpand form)]
-    (tprnl "Expanded" form "into" expanded)
-    (tprnl "Meta on expanded is" (meta expanded))
+    (debug/tprnl "Expanded" form "into" expanded)
+    (debug/tprnl "Meta on expanded is" (meta expanded))
     (if (= :list (form-type expanded env))
       (let [wrapped (doall (map (wrapper f line) expanded))]
         (f line (add-original form wrapped)))
@@ -391,50 +388,50 @@
         other         (if (map? (first other)) (next other) other)
         dispatch-form (first other)
         other         (rest other)]
-  (f line `(~defm-symbol ~name ~@(if docstring (list docstring) (list))
-                               ~@(if attr-map  (list attr-map)  (list))
-                               ~(wrap f line dispatch-form) ~@other))))
+    (f line `(~defm-symbol ~name ~@(if docstring (list docstring) (list))
+              ~@(if attr-map  (list attr-map)  (list))
+              ~(wrap f line dispatch-form) ~@other))))
 
 (defn instrument
   "Instruments and evaluates a list of forms."
   ([f-var lib]
-    (let [filename (resource-path lib)]
-      (let [src (form-reader lib)]
-        (loop [instrumented-forms nil]
-          (if-let [form (binding [*read-eval* false]
-                          (r/read {:eof nil
-                                   :features #{:clj}
-                                   :read-cond :allow}
-                                  src))]
-            (let [line-hint (:line (meta form))
-                  form      (if (and (iobj? form)
-                                     (nil? (:file (meta form))))
-                              (vary-meta form assoc :file filename)
-                              form)
-                  wrapped   (try
-                              (wrap f-var line-hint form)
-                              (catch Throwable t
-                                (throw+ t "Couldn't wrap form %s at line %s"
+   (let [filename (src/resource-path lib)]
+     (let [src (src/form-reader lib)]
+       (loop [instrumented-forms nil]
+         (if-let [form (binding [*read-eval* false]
+                         (r/read {:eof nil
+                                  :features #{:clj}
+                                  :read-cond :allow}
+                                 src))]
+           (let [line-hint (:line (meta form))
+                 form      (if (and (iobj? form)
+                                    (nil? (:file (meta form))))
+                             (vary-meta form assoc :file filename)
+                             form)
+                 wrapped   (try
+                             (wrap f-var line-hint form)
+                             (catch Throwable t
+                               (ss/throw+ t "Couldn't wrap form %s at line %s"
                                           form line-hint)))]
-              (try
-                (binding [*file*        filename
-                          *source-path* filename]
-                  (eval wrapped))
-                (binding [*print-meta* true]
-                  (tprn "Evalling" wrapped " with meta " (meta wrapped)))
-                (catch Exception e
-                  (throw (Exception.
-                           (str "Couldn't eval form "
-                                (binding [*print-meta* true]
-                                  (with-out-str (prn wrapped)))
-                                (with-out-str (prn (macroexpand-all wrapped)))
-                                (with-out-str (prn form)))
-                           e))))
-              (recur (conj instrumented-forms wrapped)))
-            (do
-              (let [rforms (reverse instrumented-forms)]
-                (dump-instrumented rforms lib)
-                rforms))))))))
+             (try
+               (binding [*file*        filename
+                         *source-path* filename]
+                 (eval wrapped))
+               (binding [*print-meta* true]
+                 (debug/tprn "Evalling" wrapped " with meta " (meta wrapped)))
+               (catch Exception e
+                 (throw (Exception.
+                         (str "Couldn't eval form "
+                              (binding [*print-meta* true]
+                                (with-out-str (prn wrapped)))
+                              (with-out-str (prn (rw/macroexpand-all wrapped)))
+                              (with-out-str (prn form)))
+                         e))))
+             (recur (conj instrumented-forms wrapped)))
+           (do
+             (let [rforms (reverse instrumented-forms)]
+               (debug/dump-instrumented rforms lib)
+               rforms))))))))
 
 (defn nop
   "Instrument form with expressions that do nothing."

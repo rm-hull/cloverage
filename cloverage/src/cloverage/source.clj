@@ -1,8 +1,6 @@
 (ns cloverage.source
-  (:import java.lang.IllegalArgumentException)
-  (:require [clojure.tools.reader.reader-types :as rt]
-            [clojure.tools.reader :as r])
-  (:use    [cloverage.debug]))
+  (:require [clojure.tools.reader :as r]
+            [clojure.tools.reader.reader-types :as rt]))
 
 (defn resource-path
   "Given a symbol representing a lib, return a classpath-relative path.  Borrowed from core.clj."
@@ -14,13 +12,13 @@
 
 (defn resource-reader [resource]
   (if-let [resource (.getResourceAsStream
-                      (clojure.lang.RT/baseLoader)
-                      resource)]
+                     (clojure.lang.RT/baseLoader)
+                     resource)]
     resource
     ;; try cljc if clj not found
     (if-let [resource (.getResourceAsStream
-                        (clojure.lang.RT/baseLoader)
-                        (str resource "c"))]
+                       (clojure.lang.RT/baseLoader)
+                       (str resource "c"))]
       resource
       (throw (IllegalArgumentException. (str "Cannot find resource " resource))))))
 

@@ -1,8 +1,7 @@
 (ns cloverage.test-instrument
-  (:import java.lang.AssertionError)
-  (:use [clojure.test]
-        [cloverage instrument source])
-  (:require [riddley.walk :refer [macroexpand-all]]))
+  (:require [clojure.test :as t]
+            [cloverage.instrument :as inst]
+            [riddley.walk :as rw]))
 
 (def simple-forms
   "Simple forms that do not require macroexpansion and have no side effects."
@@ -14,19 +13,19 @@
    #{:sets :should :work}
    '(do :expression)])
 
-(deftest wrap-preserves-value
+(t/deftest wrap-preserves-value
   (doseq [simple-expr simple-forms]
-    (is (= simple-expr (macroexpand-all (wrap #'no-instr 0 simple-expr))))
-    (is (= (eval simple-expr) (eval (wrap #'nop 0 simple-expr))))))
+    (t/is (= simple-expr (rw/macroexpand-all (inst/wrap #'inst/no-instr 0 simple-expr))))
+    (t/is (= (eval simple-expr) (eval (inst/wrap #'inst/nop 0 simple-expr))))))
 
-(deftest correctly-resolves-macro-symbols
+(t/deftest correctly-resolves-macro-symbols
   ;; simply ensure that instrumentation succeeds without errors
-  (is (instrument #'no-instr 'cloverage.sample.read-eval-sample)))
+  (t/is (inst/instrument #'inst/no-instr 'cloverage.sample.read-eval-sample)))
 
 (defn- form-type-
   "Provide a default empty env to form-type, purely for easier testing."
   ([f] (form-type- f nil))
-  ([f e] (form-type f e)))
+  ([f e] (inst/form-type f e)))
 
 (defprotocol Protocol
   (method [this]))
@@ -35,42 +34,42 @@
   Protocol
   (method [_] foo))
 
-(deftest test-form-type
-  (is (= :atomic (form-type- 1)))
-  (is (= :atomic (form-type- "foo")))
-  (is (= :atomic (form-type- 'bar)))
-  (is (= :coll (form-type- [1 2 3 4])))
-  (is (= :coll (form-type- {1 2 3 4})))
-  (is (= :coll (form-type- #{1 2 3 4})))
-  (is (= :coll (form-type- (Record. 1))))
-  (is (= :list (form-type- '(+ 1 2))))
-  (is (= :do (form-type- '(do 1 2 3))))
-  (is (= :list (form-type- '(loop 1 2 3)
-                          {'loop 'hoop} ;fake a local binding
-                          ))))
+(t/deftest test-form-type
+  (t/is (= :atomic (form-type- 1)))
+  (t/is (= :atomic (form-type- "foo")))
+  (t/is (= :atomic (form-type- 'bar)))
+  (t/is (= :coll (form-type- [1 2 3 4])))
+  (t/is (= :coll (form-type- {1 2 3 4})))
+  (t/is (= :coll (form-type- #{1 2 3 4})))
+  (t/is (= :coll (form-type- (Record. 1))))
+  (t/is (= :list (form-type- '(+ 1 2))))
+  (t/is (= :do (form-type- '(do 1 2 3))))
+  (t/is (= :list (form-type- '(loop 1 2 3)
+                             {'loop 'hoop} ;fake a local binding
+                             ))))
 
-(deftest do-wrap-for-record-returns-record
-  (is (= 1 (method (eval (wrap #'nop 0 (Record. 1)))))))
+(t/deftest do-wrap-for-record-returns-record
+  (t/is (= 1 (method (eval (inst/wrap #'inst/nop 0 (Record. 1)))))))
 
-(deftest do-wrap-for-record-func-key-returns-func
-  (is (= 1 ((method (eval (wrap #'nop 0 (Record. (fn [] 1)))))))))
+(t/deftest do-wrap-for-record-func-key-returns-func
+  (t/is (= 1 ((method (eval (inst/wrap #'inst/nop 0 (Record. (fn [] 1)))))))))
 
-(deftest preserves-fn-conditions
-  (let [pre-fn (eval (wrap #'nop 0
-                           '(fn [n] {:pre [(> n 0) (even? n)]} n)))]
-    (is (thrown? AssertionError (pre-fn -1)))
-    (is (thrown? AssertionError (pre-fn 1)))
-    (is (= 2 (pre-fn 2))))
-  (let [post-fn (eval (wrap #'nop 0
-                            '(fn [n] {:post [(> % 3) (even? %)]} n)))]
-    (is (thrown? AssertionError (post-fn 1)))
-    (is (thrown? AssertionError (post-fn 5)))
-    (is (= 4 (post-fn 4))))
+(t/deftest preserves-fn-conditions
+  (let [pre-fn (eval (inst/wrap #'inst/nop 0
+                                '(fn [n] {:pre [(> n 0) (even? n)]} n)))]
+    (t/is (thrown? AssertionError (pre-fn -1)))
+    (t/is (thrown? AssertionError (pre-fn 1)))
+    (t/is (= 2 (pre-fn 2))))
+  (let [post-fn (eval (inst/wrap #'inst/nop 0
+                                 '(fn [n] {:post [(> % 3) (even? %)]} n)))]
+    (t/is (thrown? AssertionError (post-fn 1)))
+    (t/is (thrown? AssertionError (post-fn 5)))
+    (t/is (= 4 (post-fn 4))))
   ;; XXX: side effect, but need to test defn since we special case it
-  (let [both-defn (eval (wrap #'nop 0
-                        '(defn both-defn [n]
-                           {:pre [(> n -1)] :post [(> n 0)]}
-                           n)))]
-    (is (thrown? AssertionError (both-defn 0)))
-    (is (thrown? AssertionError (both-defn -1)))
-    (is (= 1 (both-defn 1)))))
+  (let [both-defn (eval (inst/wrap #'inst/nop 0
+                                   '(defn both-defn [n]
+                                      {:pre [(> n -1)] :post [(> n 0)]}
+                                      n)))]
+    (t/is (thrown? AssertionError (both-defn 0)))
+    (t/is (thrown? AssertionError (both-defn -1)))
+    (t/is (= 1 (both-defn 1)))))

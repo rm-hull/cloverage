@@ -1,6 +1,6 @@
 (ns cloverage.dependency
-  (:use [cloverage.kahn :only (kahn-sort)]
-        [cloverage.source :only (ns-form)]))
+  (:require [cloverage.kahn :as kahn]
+            [cloverage.source :as src]))
 
 ;;(do
 ;; (clojure.core/in-ns 'cloverage.coverage)
@@ -25,7 +25,7 @@
 ;;   '[clojure.set :as set]
 ;;   nil
 ;;clojure.core> '[clojure.test :as test]
-;;   '[clojure.tools.logging :as log])) 
+;;   '[clojure.tools.logging :as log]))
 
 
 ;; snipped from clojure.core
@@ -40,8 +40,8 @@
 
 (defn- spec-dependencies [libspec]
   (cond
-    (symbol?  libspec) [libspec] 
-    (libspec? libspec) [(first (filter (complement keyword?) libspec))] 
+    (symbol?  libspec) [libspec]
+    (libspec? libspec) [(first (filter (complement keyword?) libspec))]
     (vector?  libspec) (let [[prefix & args] libspec]
                          (map #(symbol (str prefix \. (if (seq? %) (first %) %))) args))))
 
@@ -49,7 +49,7 @@
   (when (#{:use :require :load} (first reference))
     (mapcat spec-dependencies (rest reference))))
 
-(defn dependency-libs 
+(defn dependency-libs
   "Given a (ns ...) form, return the ns name and a list of namespaces
    it depends on."
   [[ns-sym ns-nam & refs]]
@@ -60,10 +60,10 @@
    sort of the dependency graph."
   [dep-lists]
   (let [dep-graph (into {} dep-lists)]
-    (reverse (filter (set (keys dep-graph)) (kahn-sort dep-graph)))))
+    (reverse (filter (set (keys dep-graph)) (kahn/kahn-sort dep-graph)))))
 
 (defn in-dependency-order
   "Sort a list of namespace symbols so that any namespace occurs after
    its dependencies."
   [nses]
-  (dependency-sort (map #(-> % ns-form dependency-libs) nses)))
+  (dependency-sort (map #(-> % src/ns-form dependency-libs) nses)))

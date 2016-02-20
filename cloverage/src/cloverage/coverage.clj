@@ -1,15 +1,17 @@
 (ns cloverage.coverage
-  (:import [clojure.lang LineNumberingPushbackReader IObj]
-           [java.io File InputStreamReader]
-           [java.lang Runtime])
-  (:use [clojure.java.io :only [reader writer copy]]
-        [clojure.tools.cli :only [cli]]
-        [cloverage source instrument debug report dependency])
-  (:require [clojure.set :as set]
+  (:gen-class)
+  (:require [bultitude.core :as blt]
+            [clojure.set :as set]
             [clojure.test :as test]
+            [clojure.tools.cli :as cli]
             [clojure.tools.logging :as log]
-            [bultitude.core :as blt])
-  (:gen-class))
+            [cloverage.debug :as debug]
+            [cloverage.dependency :as dep]
+            [cloverage.instrument :as inst]
+            [cloverage.report :as rep]
+            [cloverage.source :as src])
+  (:import clojure.lang.IObj
+           java.io.File))
 
 (def ^:dynamic *instrumented-ns*) ;; currently instrumented ns
 (def ^:dynamic *covered* (atom []))
@@ -43,9 +45,9 @@
 (defn add-form
   "Adds a structure representing the given form to the *covered* vector."
   [form line-hint]
-  (tprnl "Adding form" form "at line" (:line (meta form)) "hint" line-hint)
+  (debug/tprnl "Adding form" form "at line" (:line (meta form)) "hint" line-hint)
   (let [lib  *instrumented-ns*
-        file (resource-path lib)
+        file (src/resource-path lib)
         line (or (:line (meta form)) line-hint)
         form-info {:form (or (:original (meta form))
                              form)
@@ -55,15 +57,15 @@
                    :lib  lib
                    :file file}]
     (binding [*print-meta* true]
-      (tprn "Parsed form" form)
-      (tprn "Adding" form-info))
-      (->
-        (swap! *covered* conj form-info)
-        count
-        dec)))
+      (debug/tprn "Parsed form" form)
+      (debug/tprn "Adding" form-info))
+    (->
+     (swap! *covered* conj form-info)
+     count
+     dec)))
 
 (defn track-coverage [line-hint form]
-  (tprnl "Track coverage called with" form)
+  (debug/tprnl "Track coverage called with" form)
   (let [idx   (count @*covered*)
         form' (if (instance? clojure.lang.IObj form)
                 (vary-meta form assoc :idx idx)
@@ -76,48 +78,49 @@
       (swap! col conj val))))
 
 (defn parse-args [args]
-  (cli args
-       ["-o" "--output" "Output directory." :default "target/coverage"]
-       ["--[no-]text"
-        "Produce a text report." :default false]
-       ["--[no-]html"
-        "Produce an HTML report." :default true]
-       ["--[no-]emma-xml"
-        "Produce an EMMA XML report. [emma.sourceforge.net]" :default false]
-       ["--[no-]codecov"
-        "Generate a JSON report for Codecov.io" :default false]
-       ["--[no-]coveralls"
-        "Send a JSON report to Coveralls if on a CI server" :default false]
-       ["--[no-]raw"
-        "Output raw coverage data (for debugging)." :default false]
-       ["--[no-]summary"
-        "Prints a summary" :default true]
-       ["-d" "--[no-]debug"
-        "Output debugging information to stdout." :default false]
-       ["--[no-]nop" "Instrument with noops." :default false]
-       ["-n" "--ns-regex"
-        "Regex for instrumented namespaces (can be repeated)."
-        :default  []
-        :parse-fn (collecting-args-parser)]
-       ["-e" "--ns-exclude-regex"
-        "Regex for namespaces not to be instrumented (can be repeated)."
-        :default  []
-        :parse-fn (collecting-args-parser)]
-       ["-t" "--test-ns-regex"
-        "Regex for test namespaces (can be repeated)."
-        :default []
-        :parse-fn (collecting-args-parser)]
-       ["-p" "--src-ns-path"
-        "Path (string) to directory containing source code namespaces."
-        :default nil]
-       ["-s" "--test-ns-path"
-        "Path (string) to directory containing test namespaces."
-        :default nil]
-       ["-x" "--extra-test-ns"
-        "Additional test namespace (string) to add (can be repeated)."
-        :default  []
-        :parse-fn (collecting-args-parser)]
-       ["-h" "--help" "Show help." :default false :flag true]))
+  ;; TODO: `cli` is legacy API
+  (cli/cli args
+           ["-o" "--output" "Output directory." :default "target/coverage"]
+           ["--[no-]text"
+            "Produce a text report." :default false]
+           ["--[no-]html"
+            "Produce an HTML report." :default true]
+           ["--[no-]emma-xml"
+            "Produce an EMMA XML report. [emma.sourceforge.net]" :default false]
+           ["--[no-]codecov"
+            "Generate a JSON report for Codecov.io" :default false]
+           ["--[no-]coveralls"
+            "Send a JSON report to Coveralls if on a CI server" :default false]
+           ["--[no-]raw"
+            "Output raw coverage data (for debugging)." :default false]
+           ["--[no-]summary"
+            "Prints a summary" :default true]
+           ["-d" "--[no-]debug"
+            "Output debugging information to stdout." :default false]
+           ["--[no-]nop" "Instrument with noops." :default false]
+           ["-n" "--ns-regex"
+            "Regex for instrumented namespaces (can be repeated)."
+            :default  []
+            :parse-fn (collecting-args-parser)]
+           ["-e" "--ns-exclude-regex"
+            "Regex for namespaces not to be instrumented (can be repeated)."
+            :default  []
+            :parse-fn (collecting-args-parser)]
+           ["-t" "--test-ns-regex"
+            "Regex for test namespaces (can be repeated)."
+            :default []
+            :parse-fn (collecting-args-parser)]
+           ["-p" "--src-ns-path"
+            "Path (string) to directory containing source code namespaces."
+            :default nil]
+           ["-s" "--test-ns-path"
+            "Path (string) to directory containing test namespaces."
+            :default nil]
+           ["-x" "--extra-test-ns"
+            "Additional test namespace (string) to add (can be repeated)."
+            :default  []
+            :parse-fn (collecting-args-parser)]
+           ["-h" "--help" "Show help." :default false :flag true]))
 
 (defn mark-loaded [namespace]
   (binding [*ns* (find-ns 'clojure.core)]
@@ -130,9 +133,9 @@
   * all namespaces on the classpath that match any of the regex-patterns (if ns-path is nil)
   * namespaces on ns-path that match any of the regex-patterns"
   (let [namespaces (->> (cond
-                         (and (nil? ns-path) (empty? regex-patterns)) '()
-                         (nil? ns-path) (blt/namespaces-on-classpath)
-                         :else (blt/namespaces-on-classpath :classpath ns-path))
+                          (and (nil? ns-path) (empty? regex-patterns)) '()
+                          (nil? ns-path) (blt/namespaces-on-classpath)
+                          :else (blt/namespaces-on-classpath :classpath ns-path))
                         (map name))]
     (if (seq regex-patterns)
       (filter (fn [namespace] (some #(re-matches % namespace) regex-patterns))
@@ -162,22 +165,22 @@
         test-ns-path  (:test-ns-path opts)
         start         (System/currentTimeMillis)
         namespaces    (set/difference
-                        (into #{}
-                              (concat add-nses
-                                      (find-nses ns-path ns-regexs)))
-                        (into #{} (find-nses ns-path exclude-regex)))
+                       (into #{}
+                             (concat add-nses
+                                     (find-nses ns-path ns-regexs)))
+                       (into #{} (find-nses ns-path exclude-regex)))
         test-nses     (concat add-test-nses (find-nses test-ns-path test-regexs))]
     (if help?
       (println help)
       (binding [*ns*      (find-ns 'cloverage.coverage)
-                *debug*   debug?]
+                debug/*debug*   debug?]
         (println "Loading namespaces: " (apply list namespaces))
         (println "Test namespaces: " test-nses)
-        (doseq [namespace (in-dependency-order (map symbol namespaces))]
+        (doseq [namespace (dep/in-dependency-order (map symbol namespaces))]
           (binding [*instrumented-ns* namespace]
             (if nops?
-              (instrument #'nop namespace)
-              (instrument #'track-coverage namespace)))
+              (inst/instrument #'inst/nop namespace)
+              (inst/instrument #'track-coverage namespace)))
           (println "Loaded " namespace " .")
           ;; mark the ns as loaded
           (mark-loaded namespace))
@@ -196,15 +199,15 @@
           (println "Ran tests.")
           (when output
             (.mkdir (File. output))
-            (let [stats (gather-stats @*covered*)
-                  results [(when text? (text-report output stats))
-                           (when html? (html-report output stats)
-                             (html-summary output stats))
-                           (when emma-xml? (emma-xml-report output stats))
-                           (when raw? (raw-report output stats @*covered*))
-                           (when codecov? (codecov-report output stats))
-                           (when coveralls? (coveralls-report output stats))
-                           (when summary? (summary stats))]]
+            (let [stats (rep/gather-stats @*covered*)
+                  results [(when text? (rep/text-report output stats))
+                           (when html? (rep/html-report output stats)
+                                 (rep/html-summary output stats))
+                           (when emma-xml? (rep/emma-xml-report output stats))
+                           (when raw? (rep/raw-report output stats @*covered*))
+                           (when codecov? (rep/codecov-report output stats))
+                           (when coveralls? (rep/coveralls-report output stats))
+                           (when summary? (rep/summary stats))]]
 
               (println "Produced output in" (.getAbsolutePath (File. output)) ".")
               (doseq [r results] (when r (println r)))))

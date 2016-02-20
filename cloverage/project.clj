@@ -7,10 +7,10 @@
         :tag  "HEAD"}
   :main ^:skip-aot cloverage.coverage
   :aot [clojure.tools.reader]
-  :license {:name "Eclipse Public License - v 1.0"
-            :url "http://www.eclipse.org/legal/epl-v10.html"
+  :license {:name         "Eclipse Public License - v 1.0"
+            :url          "http://www.eclipse.org/legal/epl-v10.html"
             :distribution :repo
-            :comments "same as Clojure"}
+            :comments     "same as Clojure"}
   :repositories [["sonatype-oss-public" "https://oss.sonatype.org/content/groups/public/"]]
   :deploy-repositories [["releases" :clojars]]
   :dependencies [[org.clojure/tools.reader "1.0.0-alpha3"]

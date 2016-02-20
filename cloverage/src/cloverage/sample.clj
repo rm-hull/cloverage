@@ -1,7 +1,6 @@
 (ns cloverage.sample
   (:refer-clojure :exclude [loop])
-  (:import java.lang.RuntimeException)
-  (:use [clojure test]))
+  (:require [clojure.test :refer :all]))
 
 '()
 
@@ -115,9 +114,9 @@
 (defn transaction-fn
   [n]
   (dosync
-    (cond
-      (zero? n) :zero
-      :else     (throw (RuntimeException. "FAIL TRANSACTION")))))
+   (cond
+     (zero? n) :zero
+     :else     (throw (RuntimeException. "FAIL TRANSACTION")))))
 
 (deftest failing-transaction
   (is (thrown? Exception (transaction-fn 1))))
