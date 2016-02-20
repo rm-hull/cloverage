@@ -60,22 +60,26 @@ In order to release to Clojars, you'll need to set `CLOJARS_USERNAME` and `CLOJA
 e.g. `CLOJARS_USERNAME=lshift CLOJARS_PASSWORD=<LShift Clojars password> lein release` in each of the cloverage and lein-cloverage folders.
 
 ## Changelog
+1.0.8 (forked):
+- Bugfixes:
+  - Fix a bug where the plugin adds a wrong core library artifact as a dependency.
+
 1.0.7 (forked):
-- Features
+- Features:
   - Use clojure.tools.reader for more accurate reports
   - Support for Codecov
   - Support for reader conditionals (maybe not perfect yet)
   - Update dependencies
 
 1.0.6:
-- Features
+- Features:
   - Option to exclude namespaces (#57/#73)
   - Improved records fixes for Compojure (#66/#69)
   - Option to specify a path to src/test namespaces (#70)
   - Automatic push out of snapshot releases (#65)
   - Handle records correctly (#59)
   - Text summary of results (#50)
-- Bugfixes
+- Bugfixes:
   - Correct test namespaces regex usage (#67)
   - Cope with zero-namespace situations correctly (#62)
 
