@@ -1,4 +1,4 @@
-(ns cloverage.test-instrument
+(ns cloverage.instrument-test
   (:require [clojure.test :as t]
             [cloverage.instrument :as inst]
             [riddley.walk :as rw]))

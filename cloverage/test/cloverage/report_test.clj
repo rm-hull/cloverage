@@ -1,4 +1,4 @@
-(ns cloverage.test-report
+(ns cloverage.report-test
   (:require [clojure.test :as t]
             [cloverage.report :as rep])
   (:import java.io.File))

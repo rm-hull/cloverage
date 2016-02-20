@@ -1,4 +1,4 @@
-(ns cloverage.test-dependency
+(ns cloverage.dependency-test
   (:require [cloverage.dependency :as cd]
             [clojure.test :as t]))
 
