@@ -15,5 +15,12 @@
                                       :password :env}]
                         ["releases" :clojars]]
   :min-lein-version "2.0.0"
-  :dependencies [[bultitude "0.2.8"]]
-  :eval-in-leiningen true)
+  :dependencies [[bultitude "0.2.8"]
+                 [lein-file-replace "0.1.0"]]
+  :eval-in-leiningen true
+  :aliases {"sync-core-lib-version"
+            ["file-replace"
+             "src/leiningen/cloverage.clj"
+             "cloverage-version \""
+             "\""
+             "version"]})

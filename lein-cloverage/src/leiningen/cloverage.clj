@@ -2,11 +2,15 @@
   (:require [leiningen.run :as run]
             [bultitude.core :as blt]))
 
+;;; Don't edit manually the version number.
+;;; Instead, use `lein sync-core-lib-version` task.
+(def cloverage-version "1.0.8-SNAPSHOT")
+
 (defn ns-names-for-dirs [dirs]
   (map name (mapcat blt/namespaces-in-dir dirs)))
 
 (defn get-lib-version []
-  (or (System/getenv "CLOVERAGE_VERSION") "RELEASE"))
+  (or (System/getenv "CLOVERAGE_VERSION") cloverage-version))
 
 (defn cloverage
   "Run code coverage on the project.
