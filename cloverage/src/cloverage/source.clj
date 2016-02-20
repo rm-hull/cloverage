@@ -25,13 +25,12 @@
                          (.getResourceAsStream
                           (get-loader)
                           resource))]
-    resource
+    (java.io.InputStreamReader. resource)
     (throw (IllegalArgumentException. (str "Cannot find resource " resource)))))
 
 (defn form-reader [ns-symbol]
   (rt/indexing-push-back-reader
-   (rt/input-stream-push-back-reader
-    (resource-reader (resource-path ns-symbol)))))
+   (resource-reader (resource-path ns-symbol))))
 
 (defn forms [ns-symbol]
   (let [src (form-reader ns-symbol)]

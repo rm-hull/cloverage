@@ -60,6 +60,10 @@ In order to release to Clojars, you'll need to set `CLOJARS_USERNAME` and `CLOJA
 e.g. `CLOJARS_USERNAME=lshift CLOJARS_PASSWORD=<LShift Clojars password> lein release` in each of the cloverage and lein-cloverage folders.
 
 ## Changelog
+master (unreleased):
+- Bugfixes:
+  - Fix a bug where the form reader fails to read files containing multibyte chars.
+
 1.0.8 (forked):
 - Bugfixes:
   - Fix a bug where the plugin adds a wrong core library artifact as a dependency.
