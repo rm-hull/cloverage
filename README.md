@@ -31,7 +31,7 @@ There is no maven plugin right now. A workaround is to import this library in th
 project being tested, then run:
 `mvn exec:java -Dexec.classpathScope=test -Dexec.mainClass='clojure.main' -Dexec.args='--main cloverage.coverage *args-to-coverage*'`
 
-Where *args-to-coverage* will usually be something like "-n 'ns.regex.*' -t 'text.ns.regex.*'"
+Where *args-to-coverage* will usually be something like "-n 'ns.regex.*' -t 'test.ns.regex.*'"
 
 
 ## Troubleshooting
