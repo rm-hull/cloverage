@@ -60,7 +60,14 @@ In order to release to Clojars, you'll need to set `CLOJARS_USERNAME` and `CLOJA
 e.g. `CLOJARS_USERNAME=lshift CLOJARS_PASSWORD=<LShift Clojars password> lein release` in each of the cloverage and lein-cloverage folders.
 
 ## Changelog
-1.0.6
+1.0.7 (forked):
+- Features
+  - Use clojure.tools.reader for more accurate reports
+  - Support for Codecov
+  - Support for reader conditionals (maybe not perfect yet)
+  - Update dependencies
+
+1.0.6:
 - Features
   - Option to exclude namespaces (#57/#73)
   - Improved records fixes for Compojure (#66/#69)
