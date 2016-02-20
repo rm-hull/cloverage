@@ -12,7 +12,10 @@
             :distribution :repo
             :comments     "same as Clojure"}
   :repositories [["sonatype-oss-public" "https://oss.sonatype.org/content/groups/public/"]]
-  :deploy-repositories [["releases" :clojars]]
+  :deploy-repositories [["snapshots" {:url "https://clojars.org/repo/"
+                                      :username :env
+                                      :password :env}]
+                        ["releases" :clojars]]
   :dependencies [[org.clojure/tools.reader "1.0.0-alpha3"]
                  [org.clojure/tools.cli "0.3.3"]
                  [org.clojure/tools.logging "0.3.1"]

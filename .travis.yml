@@ -1,16 +1,22 @@
 language: clojure
 lein: lein2
-install: (cd cloverage && lein2 deps) && (cd lein-cloverage && lein2 deps)
-script: (cd cloverage && lein2 test) && (cd lein-cloverage && lein2 test)
+install: (cd cloverage && lein2 all deps) && (cd lein-cloverage && lein2 deps)
+script: (cd cloverage && lein2 all test) && (cd lein-cloverage && lein2 test)
 sudo: false
 cache:
   directories:
     - $HOME/.m2
 
 jdk:
+  - oraclejdk8
   - oraclejdk7
   - openjdk7
   - openjdk6
 
-after_success:
-  - bash deploy.sh
+deploy:
+  provider: script
+  script: bash deploy.sh
+  skip_cleanup: true
+  on:
+    jdk: openjdk6
+    branch: master
