@@ -1,4 +1,4 @@
-(defproject rfkm/cloverage "1.0.8"
+(defproject rfkm/cloverage "1.0.9-SNAPSHOT"
   :description "Form-level test coverage for clojure."
   :url "https://www.github.com/rfkm/cloverage"
   :scm {:name "git"

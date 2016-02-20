@@ -4,7 +4,7 @@
 
 ;;; Don't edit manually the version number.
 ;;; Instead, use `lein sync-core-lib-version` task.
-(def cloverage-version "1.0.8")
+(def cloverage-version "1.0.9-SNAPSHOT")
 
 (defn ns-names-for-dirs [dirs]
   (map name (mapcat blt/namespaces-in-dir dirs)))
