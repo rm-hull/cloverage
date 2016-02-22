@@ -3,7 +3,7 @@
   :url "https://github.com/rfkm/cloverage"
   :scm {:name "git"
         :dir  ".."
-        :url  "https://www.github.com/rfkm/cloverage"
+        :url  "https://github.com/rfkm/cloverage"
         :tag  "HEAD"}
   :vcs :git
   :license {:name "Eclipse Public License - v 1.0"
