@@ -78,6 +78,11 @@
     (fn [val]
       (swap! col conj val))))
 
+(defn- parse-kw-str [s]
+  (let [s (name s)
+        s (if (and s (.startsWith s ":")) (subs s 1) s)]
+    (keyword s)))
+
 (defn parse-args [args]
   ;; TODO: `cli` is legacy API
   (cli/cli args
@@ -99,6 +104,10 @@
            ["-d" "--[no-]debug"
             "Output debugging information to stdout." :default false]
            ["--[no-]nop" "Instrument with noops." :default false]
+           ["-r" "--runner"
+            "Specify which test runner to use. Currently supported runners are `clojure.test` and `midje`."
+            :default :clojure.test
+            :parse-fn parse-kw-str]
            ["-n" "--ns-regex"
             "Regex for instrumented namespaces (can be repeated)."
             :default  []
@@ -143,6 +152,32 @@
               namespaces)
       namespaces)))
 
+(defn- resolve-var [sym]
+  (let [ns (namespace (symbol sym))
+        ns (when ns (symbol ns))]
+    (when ns
+      (require ns))
+    (ns-resolve (or ns *ns*)
+                (symbol (name sym)))))
+
+(defmulti runner-fn identity)
+
+(defmethod runner-fn :midje [_]
+  (if-let [f (resolve-var 'midje.repl/load-facts)]
+    (fn [nses]
+      {:errors (:failures (apply f nses))})
+    (throw (RuntimeException. "Failed to load Midje."))))
+
+(defmethod runner-fn :clojure.test [_]
+  (fn [nses]
+    (apply require (map symbol nses))
+    {:errors (reduce + ((juxt :error :fail)
+                        (apply test/run-tests nses)))}))
+
+(defmethod runner-fn :default [_]
+  (throw (IllegalArgumentException.
+          "Currently supported runners are only `clojure.test` and `midje`.")))
+
 (defn -main
   "Produce test coverage report for some namespaces"
   [& args]
@@ -164,6 +199,7 @@
         exclude-regex (map re-pattern (:ns-exclude-regex opts))
         ns-path       (:src-ns-path opts)
         test-ns-path  (:test-ns-path opts)
+        runner        (runner-fn (:runner opts))
         start         (System/currentTimeMillis)
         namespaces    (set/difference
                        (into #{}
@@ -188,11 +224,10 @@
         (println "Instrumented namespaces.")
         (let [test-result (when-not (empty? test-nses)
                             (let [test-syms (map symbol test-nses)]
-                              (apply require (map symbol test-nses))
-                              (apply test/run-tests (map symbol test-nses))))
+                              (runner test-syms)))
               ;; sum up errors as in lein test
               errors      (when test-result
-                            (reduce + ((juxt :error :fail) test-result)))
+                            (:errors test-result))
               exit-code   (cond
                             (not test-result) -1
                             (> errors 128)    -2
